@@ -1,6 +1,7 @@
 const express = require("express"); // imprting express package
 const mongoose = require("mongoose"); // imprting mongoose package
 const cors = require("cors");
+require("dotenv").config(); // for environment variables
 const app = express();
 app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(cors());
@@ -8,9 +9,7 @@ const User = require("./models/Users");
 const Post = require("./models/Post");
 const Product = require("./models/Products");
 mongoose
-  .connect(
-    "mongodb+srv://bendary32:Marwa209%24@nodejscluster.tjoemxc.mongodb.net/testdb?retryWrites=true&w=majority&appName=nodejscluster"
-  )
+  .connect(process.env.MONGODB_URL)
   .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
   .catch((error) => console.error("❌ MongoDB connection error:", error));
 
@@ -80,12 +79,17 @@ app.post("/post", async (req, res) => {
   res.send("create post");
 });
 
-
 // ===== Create Products ======
 app.post("/products", async (req, res) => {
   try {
     const { title, image, price, category, description } = req.body;
-    const newProduct = new Product({ title: title, image: image, price: price, category:category, description: description });
+    const newProduct = new Product({
+      title: title,
+      image: image,
+      price: price,
+      category: category,
+      description: description,
+    });
     await newProduct.save();
     res.status(201).json({
       message: "Products created successfully",
@@ -97,11 +101,11 @@ app.post("/products", async (req, res) => {
   }
 });
 
-app.get("/products", async(req, res) => {
+app.get("/products", async (req, res) => {
   try {
     const products = await Product.find();
     res.status(200).json(products);
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
-})
+});
