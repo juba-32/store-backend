@@ -8,7 +8,9 @@ const productSchema = new mongoose.Schema({
   discount: Number,
   color: String,
   description: String,
-  inStock: Boolean
+  inStock: Boolean,
+  brand: String,
+  model: String
 });
 
 const Product = mongoose.model("Product", productSchema);

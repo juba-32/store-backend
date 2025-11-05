@@ -1,9 +1,13 @@
 const express = require("express"); // imprting express package
 const mongoose = require("mongoose"); // imprting mongoose package
 const cors = require("cors");
+const compression = require("compression");
+
 require("dotenv").config(); // for environment variables
 const app = express();
 app.use(express.json()); // Middleware to parse JSON request bodies
+app.use(compression());
+
 app.use(cors());
 const User = require("./models/Users");
 const Post = require("./models/Post");
@@ -66,7 +70,7 @@ app.post("/user", async (req, res) => {
 
 // ===== Get Users ======
 app.get("/users", async (req, res) => {
-  const allUsers = await User.find();
+  const allUsers = await User.find().lean();
   console.log(allUsers);
   res.send({ newUser: allUsers });
 });
@@ -83,7 +87,7 @@ app.post("/post", async (req, res) => {
 // ===== Create Products ======
 app.post("/products", async (req, res) => {
   try {
-    const { title, image, price, category, description, color, inStock, discount } = req.body;
+    const { title, image, price, category, description, color, inStock, discount, model, brand } = req.body;
     const newProduct = new Product({
       title: title,
       image: image,
@@ -92,7 +96,9 @@ app.post("/products", async (req, res) => {
       description: description,
       discount: discount,
       color: color,
-      inStock: inStock
+      inStock: inStock,
+      brand: brand,
+      model: model
     });
     await newProduct.save();
     res.status(201).json({
@@ -107,7 +113,7 @@ app.post("/products", async (req, res) => {
 
 app.get("/products", async (req, res) => {
   try {
-    const products = await Product.find();
+    const products = await Product.find().lean();
     res.status(200).json(products);
   } catch (err) {
     res.status(500).json({ error: "Server error" });
