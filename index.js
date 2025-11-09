@@ -123,21 +123,54 @@ app.post("/products", async (req, res) => {
   }
 });
 
+// app.get("/products", async (req, res) => {
+//   try {
+//     const {selectCategory, minPrice, maxPrice, search } = req.query;
+//     const filter = {};
+//     // 🏷️ Filter by category
+//     if (selectCategory) {
+//       filter.category = { $regex: selectCategory, $options: "i" };
+//     }
+//      // 💰 Filter by price range
+//     if (minPrice || maxPrice) {
+//       filter.price = {};
+//       if (minPrice) filter.price.$gte = Number(minPrice);
+//       if (maxPrice) filter.price.$lte = Number(maxPrice);
+//     }
+//      // 🔍 Filter by search (title or description)
+//     if (search) {
+//       filter.$or = [
+//         { title: { $regex: search, $options: "i" } },
+//         { description: { $regex: search, $options: "i" } },
+//         { brand: { $regex: search, $options: "i" } },
+//       ];
+//     }
+//     const products = await Product.find(filter).lean();
+//     res.status(200).json(products);
+//   } catch (err) {
+//     console.error("Error fetching products:", err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
 app.get("/products", async (req, res) => {
   try {
-    const {selectCategory, minPrice, maxPrice, search } = req.query;
+    const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
     const filter = {};
-    // 🏷️ Filter by category
+
+    // Category filter (optional)
     if (selectCategory) {
       filter.category = { $regex: selectCategory, $options: "i" };
     }
-     // 💰 Filter by price range
+
+    // Price filter (optional)
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-     // 🔍 Filter by search (title or description)
+
+    // Search filter
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: "i" } },
@@ -145,14 +178,18 @@ app.get("/products", async (req, res) => {
         { brand: { $regex: search, $options: "i" } },
       ];
     }
-    const products = await Product.find(filter).lean();
+
+    // Apply limit if provided
+    const query = Product.find(filter).lean();
+    if (limit) query.limit(Number(limit));
+
+    const products = await query;
     res.status(200).json(products);
   } catch (err) {
     console.error("Error fetching products:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 
 app.get("/products/:id", async (req, res) => {
