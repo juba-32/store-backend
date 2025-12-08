@@ -23,10 +23,7 @@ app.listen(PORT, () => {
   console.log("im listening to port 8080");
 });
 
-// server path or endpoint
-app.get("/home", (req, res) => {
-  res.send("wellcom to home");
-});
+
 
 // path params
 app.get("/pathParams/:num1/:num2", (req, res) => {
@@ -43,13 +40,6 @@ app.post("/bodyParams", (req, res) => {
   const position = req.body.position;
   const person = name + " " + age + " " + position;
   res.send(`${person}`);
-});
-
-// html file as a response
-app.get("/htmlFile", (req, res) => {
-  res.render("test.ejs", {
-    name: "Ahmed",
-  });
 });
 
 // ===== Create User ======
@@ -123,35 +113,6 @@ app.post("/products", async (req, res) => {
   }
 });
 
-// app.get("/products", async (req, res) => {
-//   try {
-//     const {selectCategory, minPrice, maxPrice, search } = req.query;
-//     const filter = {};
-//     // 🏷️ Filter by category
-//     if (selectCategory) {
-//       filter.category = { $regex: selectCategory, $options: "i" };
-//     }
-//      // 💰 Filter by price range
-//     if (minPrice || maxPrice) {
-//       filter.price = {};
-//       if (minPrice) filter.price.$gte = Number(minPrice);
-//       if (maxPrice) filter.price.$lte = Number(maxPrice);
-//     }
-//      // 🔍 Filter by search (title or description)
-//     if (search) {
-//       filter.$or = [
-//         { title: { $regex: search, $options: "i" } },
-//         { description: { $regex: search, $options: "i" } },
-//         { brand: { $regex: search, $options: "i" } },
-//       ];
-//     }
-//     const products = await Product.find(filter).lean();
-//     res.status(200).json(products);
-//   } catch (err) {
-//     console.error("Error fetching products:", err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// });
 
 app.get("/products", async (req, res) => {
   try {
