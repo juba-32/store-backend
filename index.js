@@ -105,12 +105,15 @@ app.get("/products", async (req, res) => {
     }
     // Search filter
     if (search?.trim()) {
-      filter.title = {
-        $regex: search.trim(),$options: "i",
-      };
-    }
+  filter = [
+    { title: { $regex: search.trim(), $options: "i" } },
+    { description: { $regex: search.trim(), $options: "i" } },
+    { brand: { $regex: search.trim(), $options: "i" } },
+  ];
+}
 
-    const products = await query;
+    const products = await Product.find(filter).lean();
+;
     res.status(200).json(products);
   } catch (err) {
     console.error("Error fetching products:", err);
