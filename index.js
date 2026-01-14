@@ -105,15 +105,12 @@ app.get("/products", async (req, res) => {
     }
     // Search filter
     if (search?.trim()) {
-      filter.title = {
-        $regex: search.trim(),
-        $options: "i",
-      };
+      filter = [
+        { title: { $regex: search.trim(), $options: "i" } },
+        { description: { $regex: search.trim(), $options: "i" } },
+        { brand: { $regex: search.trim(), $options: "i" } },
+      ];
     }
-
-    // Apply limit if provided
-    const query = Product.find(filter).lean();
-    if (limit) query.limit(Number(limit));
 
     const products = await query;
     res.status(200).json(products);
