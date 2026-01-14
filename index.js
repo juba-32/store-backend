@@ -90,14 +90,12 @@ app.post("/products", async (req, res) => {
 // ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {
-    const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
+    const { selectCategory, minPrice, maxPrice, search } = req.query;
     const filter = {};
 
-    // Category filter (optional)
     if (selectCategory) {
       filter.category = { $regex: selectCategory, $options: "i" };
     }
-    // Price filter (optional)
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -105,15 +103,13 @@ app.get("/products", async (req, res) => {
     }
     // Search filter
     if (search?.trim()) {
-  filter = [
+  filter.$or = [
     { title: { $regex: search.trim(), $options: "i" } },
     { description: { $regex: search.trim(), $options: "i" } },
     { brand: { $regex: search.trim(), $options: "i" } },
   ];
 }
-
     const products = await Product.find(filter).lean();
-;
     res.status(200).json(products);
   } catch (err) {
     console.error("Error fetching products:", err);
