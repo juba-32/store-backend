@@ -2,51 +2,30 @@ const express = require("express"); // imprting express package
 const mongoose = require("mongoose"); // imprting mongoose package
 const cors = require("cors");
 const compression = require("compression");
-
 require("dotenv").config(); // for environment variables
+
+const authRoutes = require("./routes/auth");
+
 const app = express();
+
 app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(compression());
-
 app.use(cors());
-const User = require("./models/Users");
-const Post = require("./models/Post");
+
 const Product = require("./models/Products");
+
 mongoose
   .connect(process.env.MONGODB_URL)
   .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
   .catch((error) => console.error("❌ MongoDB connection error:", error));
 
+app.use("/api/auth", authRoutes);
 // server port
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`im listening to port: ${PORT}`);
 });
 
-// ===== Create User ======
-app.post("/user", async (req, res) => {
-  try {
-    const { userName, userEmail } = req.body;
-    const newUser = new User({ name: userName, email: userEmail });
-    await newUser.save();
-    res.status(201).json({
-      message: "User created successfully",
-      user: newUser,
-    });
-  } catch (err) {
-    console.log("Error Creating User", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// ===== Get Users ======
-app.get("/users", async (req, res) => {
-  const allUsers = await User.find().lean();
-  console.log(allUsers);
-  res.send({ newUser: allUsers });
-});
-
-// ===== Create Post ======
 
 // ===== Create Product ======
 app.post("/products", async (req, res) => {
