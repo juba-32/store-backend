@@ -26,13 +26,21 @@ app.listen(PORT, () => {
   console.log(`im listening to port: ${PORT}`);
 });
 
-
 // ===== Create Product ======
-app.post("/products", async (req, res) => {
+import multer from "multer";
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage });
+app.post("/products", upload.single("image"), async (req, res) => {
   try {
     const {
       title,
-      image,
       price,
       category,
       description,
@@ -42,20 +50,21 @@ app.post("/products", async (req, res) => {
       model,
       brand,
     } = req.body;
-
+    const image = req.file ? `/uploads/${req.file.filename}` : "";
     const newProduct = new Product({
-      title: title,
-      image: image,
-      price: price,
-      category: category,
-      description: description,
-      discount: discount,
-      color: color,
-      inStock: inStock,
-      brand: brand,
-      model: model,
+      title,
+      image,
+      price,
+      category,
+      description,
+      discount,
+      color,
+      inStock,
+      brand,
+      model,
     });
     await newProduct.save();
+    
     res.status(201).json({
       message: "Products created successfully",
       Products: newProduct,
@@ -82,12 +91,12 @@ app.get("/products", async (req, res) => {
     }
     // Search filter
     if (search?.trim()) {
-  filter.$or = [
-    { title: { $regex: search.trim(), $options: "i" } },
-    { description: { $regex: search.trim(), $options: "i" } },
-    { brand: { $regex: search.trim(), $options: "i" } },
-  ];
-}
+      filter.$or = [
+        { title: { $regex: search.trim(), $options: "i" } },
+        { description: { $regex: search.trim(), $options: "i" } },
+        { brand: { $regex: search.trim(), $options: "i" } },
+      ];
+    }
     const products = await Product.find(filter).lean();
     res.status(200).json(products);
   } catch (err) {
@@ -131,7 +140,7 @@ app.put("/products/:id", async (req, res) => {
     const updateProduct = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      { new: true },
     );
     res.status(200).json({
       message: "Product updated successfully",
