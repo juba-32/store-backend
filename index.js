@@ -20,23 +20,14 @@ mongoose
   .catch((error) => console.error("❌ MongoDB connection error:", error));
 
 app.use("/api/auth", authRoutes);
-// server port
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`im listening to port: ${PORT}`);
 });
 
 // ===== Create Product ======
-import multer from "multer";
+const upload = require("./middleware/upload");
 
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-
-const upload = multer({ storage });
 app.post("/products", upload.single("image"), async (req, res) => {
   try {
     const {
@@ -51,9 +42,10 @@ app.post("/products", upload.single("image"), async (req, res) => {
       brand,
     } = req.body;
     const image = req.file ? `/uploads/${req.file.filename}` : "";
+
     const newProduct = new Product({
       title,
-      image,
+      image: req.file?.path,
       price,
       category,
       description,
@@ -63,8 +55,10 @@ app.post("/products", upload.single("image"), async (req, res) => {
       brand,
       model,
     });
+    console.log("file:", req.file);
+    console.log("body:", req.body);
     await newProduct.save();
-    
+
     res.status(201).json({
       message: "Products created successfully",
       Products: newProduct,
