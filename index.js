@@ -26,46 +26,54 @@ app.listen(PORT, () => {
 });
 
 // ===== Create Product ======
+
+console.log("Token exists:", !!process.env.BLOB_READ_WRITE_TOKEN);
+const { put } = require("@vercel/blob");
 const upload = require("./middleware/upload");
 
 app.post("/products", upload.single("image"), async (req, res) => {
   try {
-    const {
-      title,
-      price,
-      category,
-      description,
-      color,
-      inStock,
-      discount,
-      model,
-      brand,
-    } = req.body;
+    if (!req.file) {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+
+    // 1. Upload to Vercel Blob
+    let blob;
+    try {
+      blob = await put(req.file.originalname, req.file.buffer, {
+        access: "public",
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+    } catch (blobError) {
+      console.error("BLOB_ERROR:", blobError);
+      return res.status(500).json({ error: "Vercel Blob storage failed", details: blobError.message });
+    }
+
+    // 2. Destructure and Convert Types
+    const { title, price, category, description, color, inStock, discount, model, brand } = req.body;
 
     const newProduct = new Product({
       title,
-      image: req.file?.path,
-      price,
+      image: blob.url,
+      price: Number(price), // Convert string to Number
       category,
       description,
-      discount,
+      discount: Number(discount) || 0,
       color,
-      inStock,
+      inStock: inStock === "true", // Convert string "true" to Boolean true
       brand,
       model,
     });
+
+    // 3. Save to MongoDB
     await newProduct.save();
 
-    res.status(201).json({
-      message: "Products created successfully",
-      Products: newProduct,
-    });
+    res.status(201).json({ message: "Product created", product: newProduct });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("GENERAL_ERROR:", err);
+    res.status(500).json({ error: "Server crashed", details: err.message });
   }
 });
-
 // ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {

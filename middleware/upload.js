@@ -1,15 +1,13 @@
 const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
 
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "products",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-  },
+// MUST use memoryStorage to get req.file.buffer
+const storage = multer.memoryStorage();
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 4 * 1024 * 1024, // 4MB to stay under Vercel's limit
+  }
 });
-
-const upload = multer({ storage });
 
 module.exports = upload;
