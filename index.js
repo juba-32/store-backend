@@ -41,7 +41,6 @@ app.post("/products", upload.single("image"), async (req, res) => {
       model,
       brand,
     } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : "";
 
     const newProduct = new Product({
       title,
@@ -55,8 +54,6 @@ app.post("/products", upload.single("image"), async (req, res) => {
       brand,
       model,
     });
-    console.log("file:", req.file);
-    console.log("body:", req.body);
     await newProduct.save();
 
     res.status(201).json({
