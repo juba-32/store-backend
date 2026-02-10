@@ -49,18 +49,17 @@ app.post("/products", upload.single("image"), async (req, res) => {
       return res.status(500).json({ error: "Vercel Blob storage failed", details: blobError.message });
     }
 
-    // 2. Destructure and Convert Types
     const { title, price, category, description, color, inStock, discount, model, brand } = req.body;
 
     const newProduct = new Product({
       title,
       image: blob.url,
-      price: Number(price), // Convert string to Number
+      price: Number(price), 
       category,
       description,
       discount: Number(discount) || 0,
       color,
-      inStock: inStock === "true", // Convert string "true" to Boolean true
+      inStock: inStock === "true",
       brand,
       model,
     });
