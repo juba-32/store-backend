@@ -14,16 +14,20 @@ app.use(cors());
 
 const Product = require("./models/Products");
 
+const PORT = process.env.PORT || 8080;
+
 mongoose
   .connect(process.env.MONGODB_URL)
-  .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
-  .catch((error) => console.error("❌ MongoDB connection error:", error));
+  .then(() => {
+    console.log("✅ Connected successfully to MongoDB Atlas");
 
-app.use("/api/auth", authRoutes);
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`im listening to port: ${PORT}`);
-});
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("❌ MongoDB connection error:", error);
+  });
 
 // ===== Create Product ======
 
