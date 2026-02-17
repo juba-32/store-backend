@@ -1,8 +1,8 @@
-import dbConnect from "../../../utils/dbConnect";
-import User from "../../../models/Users";
-import jwt from "jsonwebtoken";
+const dbConnect = require("../../../utils/dbConnect");
+const User = require("../../../models/Users");
+const jwt = require("jsonwebtoken");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -27,4 +27,4 @@ export default async function handler(req, res) {
     console.error("Signup error:", err.message);
     res.status(500).json({ message: err.message });
   }
-}
+};
