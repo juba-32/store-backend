@@ -108,6 +108,7 @@ console.log("Token exists:", !!process.env.BLOB_READ_WRITE_TOKEN);
 const { put } = require("@vercel/blob");
 const upload = require("./middleware/upload");
 
+// ===== Add New Product ======
 app.post("/products", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
@@ -153,18 +154,29 @@ app.post("/products", upload.single("image"), async (req, res) => {
 // ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {
-    const { selectCategory, minPrice, maxPrice, search } = req.query;
+    const {
+      selectCategory,
+      minPrice,
+      maxPrice,
+      search,
+      limit,
+    } = req.query;
+
     const filter = {};
 
+    /* Category filter */
     if (selectCategory) {
       filter.category = { $regex: selectCategory, $options: "i" };
     }
+
+    /* Price filter */
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
-    // Search filter
+
+    /* Search filter */
     if (search?.trim()) {
       filter.$or = [
         { title: { $regex: search.trim(), $options: "i" } },
@@ -172,7 +184,16 @@ app.get("/products", async (req, res) => {
         { brand: { $regex: search.trim(), $options: "i" } },
       ];
     }
-    const products = await Product.find(filter).lean();
+
+    /* Build query */
+    let query = Product.find(filter).lean();
+
+    /* OPTIONAL limit */
+    if (limit) {
+      query = query.limit(Number(limit));
+    }
+
+    const products = await query;
     res.status(200).json(products);
   } catch (err) {
     console.error("Error fetching products:", err);
