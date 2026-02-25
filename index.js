@@ -4,6 +4,7 @@ const cors = require("cors");
 const compression = require("compression");
 require("dotenv").config(); // for environment variables
 const User = require("./models/Users");
+const Order = require("./models/orders");
 const Product = require("./models/Products");
 const jwt = require("jsonwebtoken");
 
@@ -248,7 +249,6 @@ app.put("/products/:id", async (req, res) => {
 });
 
 
-const Order = require("./models/orders");
 const protect = require("./middleware/authMiddleware");
 
 app.post("/orders", protect, async (req, res) => {
