@@ -5,6 +5,12 @@ const userSchema = new mongoose.Schema({
   fullname: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+    cart: [
+    {
+      product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+      qty: { type: Number, default: 1 }
+    }
+  ]
 });
 
 // Hash password before saving

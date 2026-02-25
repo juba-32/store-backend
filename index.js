@@ -4,6 +4,7 @@ const cors = require("cors");
 const compression = require("compression");
 require("dotenv").config(); // for environment variables
 const User = require("./models/Users");
+const Product = require("./models/Products");
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -12,7 +13,6 @@ app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(compression());
 app.use(cors());
 
-const Product = require("./models/Products");
 
 mongoose
   .connect(process.env.MONGODB_URL)
@@ -245,4 +245,51 @@ app.put("/products/:id", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
+});
+
+
+const Order = require("./models/orders");
+const protect = require("./middleware/authMiddleware");
+
+app.post("/orders", protect, async (req, res) => {
+  try {
+    const { items, shippingInfo, paymentMethod } = req.body;
+
+    let subtotal = 0;
+    let discount = 0;
+
+    items.forEach(item => {
+      subtotal += item.price * item.qty;
+      discount += (item.discount || 0) * item.qty;
+    });
+
+    const total = subtotal - discount;
+
+    const order = await Order.create({
+      user: req.user._id,
+      items,
+      subtotal,
+      discount,
+      total,
+      shippingInfo,
+      paymentMethod,
+    });
+
+    // Clear user cart after successful order
+    req.user.cart = [];
+    await req.user.save();
+
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(500).json({ message: "Order creation failed" });
+  }
+});
+
+
+app.get("/orders/my", protect, async (req, res) => {
+  const orders = await Order.find({ user: req.user._id })
+    .populate("items.product", "title image price")
+    .sort({ createdAt: -1 });
+
+  res.json(orders);
 });
