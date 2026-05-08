@@ -1,11 +1,12 @@
+require("dotenv").config(); // for environment variables
 const express = require("express"); // imprting express package
 const mongoose = require("mongoose"); // imprting mongoose package
 const cors = require("cors");
 const compression = require("compression");
-require("dotenv").config(); // for environment variables
 const User = require("./models/Users");
-const Order = require("./models/orders");
+const Order = require("./models/Orders");
 const Product = require("./models/Products");
+const Offer = require("./models/Offers");
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -13,13 +14,17 @@ const app = express();
 app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(compression());
 app.use(cors());
+console.log("Mongo URL:", process.env.MONGODB_URL);
 
+ mongoose
+   .connect(process.env.MONGODB_URL)
+   .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
+   .catch((error) => console.error("❌ MongoDB connection error:", error));
 
-mongoose
-  .connect(process.env.MONGODB_URL)
-  .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
-  .catch((error) => console.error("❌ MongoDB connection error:", error));
-
+mongoose.connect(process.env.MONGODB_URL, {
+  serverSelectionTimeoutMS: 5000,
+  family: 4
+});
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`im listening to port: ${PORT}`);
@@ -292,4 +297,141 @@ app.get("/orders/my", protect, async (req, res) => {
     .sort({ createdAt: -1 });
 
   res.json(orders);
+});
+
+
+
+
+// ===== Create Offer =====
+
+app.post("/offers", async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      discountPercentage,
+      product,
+      startDate,
+      endDate,
+      isActive,
+    } = req.body;
+
+    const offer = new Offer({
+      title,
+      description,
+      discountPercentage,
+      product,
+      startDate,
+      endDate,
+      isActive,
+    });
+
+    await offer.save();
+
+    res.status(201).json({
+      message: "Offer created successfully",
+      offer,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Offer creation failed",
+      error: err.message,
+    });
+  }
+});
+
+// ===== Get All Offers =====
+
+app.get("/offers", async (req, res) => {
+  try {
+    const offers = await Offer.find()
+      .populate("product", "title image price")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(offers);
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to fetch offers",
+    });
+  }
+});
+
+// ===== Get Active Offers =====
+
+app.get("/offers/active", async (req, res) => {
+  try {
+    const now = new Date();
+
+    const offers = await Offer.find({
+      isActive: true,
+      $or: [
+        {
+          startDate: { $lte: now },
+          endDate: { $gte: now },
+        },
+        {
+          startDate: null,
+          endDate: null,
+        },
+      ],
+    }).populate("product", "title image price");
+
+    res.json(offers);
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to fetch active offers",
+    });
+  }
+});
+
+// ===== Update Offer =====
+
+app.put("/offers/:id", async (req, res) => {
+  try {
+    const updatedOffer = await Offer.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedOffer) {
+      return res.status(404).json({
+        message: "Offer not found",
+      });
+    }
+
+    res.json({
+      message: "Offer updated successfully",
+      offer: updatedOffer,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Offer update failed",
+    });
+  }
+});
+
+// ===== Delete Offer =====
+
+app.delete("/offers/:id", async (req, res) => {
+  try {
+    const deletedOffer = await Offer.findByIdAndDelete(req.params.id);
+
+    if (!deletedOffer) {
+      return res.status(404).json({
+        message: "Offer not found",
+      });
+    }
+
+    res.json({
+      message: "Offer deleted successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Offer deletion failed",
+    });
+  }
 });
