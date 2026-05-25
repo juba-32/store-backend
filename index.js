@@ -16,67 +16,60 @@ app.use(compression());
 app.use(cors());
 console.log("Mongo URL:", process.env.MONGODB_URL);
 
- mongoose
-   .connect(process.env.MONGODB_URL)
-   .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
-   .catch((error) => console.error("❌ MongoDB connection error:", error));
+mongoose
+  .connect(process.env.MONGODB_URL)
+  .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
+  .catch((error) => console.error("❌ MongoDB connection error:", error));
 
-mongoose.connect(process.env.MONGODB_URL, {
-  serverSelectionTimeoutMS: 5000,
-  family: 4
-});
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`im listening to port: ${PORT}`);
 });
 
+const generateToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
 
+// Register
+app.post("/signup", async (req, res) => {
+  const { fullname, email, password } = req.body;
 
- const generateToken = (id) =>
-   jwt.sign({ id }, process.env.JWT_SECRET, {
-     expiresIn: process.env.JWT_EXPIRES_IN,
-   });
+  try {
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ message: "Email already in use" });
 
+    user = new User({ fullname, email, password });
+    await user.save();
+    console.log("JWT_SECRET:", process.env.JWT_SECRET);
+    console.log("JWT_EXPIRES_IN:", process.env.JWT_EXPIRES_IN);
 
- // Register
- app.post("/signup", async (req, res) => {
-   const { fullname, email, password } = req.body;
-
-   try {
-     let user = await User.findOne({ email });
-     if (user) return res.status(400).json({ message: "Email already in use" });
-
-     user = new User({ fullname, email, password });
-     await user.save();
-     console.log("JWT_SECRET:", process.env.JWT_SECRET);
-     console.log("JWT_EXPIRES_IN:", process.env.JWT_EXPIRES_IN);
-
-     const token = generateToken(user._id);
-     res.status(201).json({ token, user: { id: user._id, fullname, email } });
-   } catch (err) {
-   console.log(err);
-   res.status(500).json({ message: err.message });
- }
- });
+    const token = generateToken(user._id);
+    res.status(201).json({ token, user: { id: user._id, fullname, email } });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // Login
- app.post("/login", async (req, res) => {
-   const { email, password } = req.body;
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
 
-   try {
-     const user = await User.findOne({ email });
-     if (!user) return res.status(400).json({ message: "Invalid credentials" });
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-     const isMatch = await user.matchPassword(password);
-     if (!isMatch)
-       return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
 
-     const token = generateToken(user._id);
-     res.json({ token, user: { id: user._id, fullname: user.fullname, email } });
-   } catch (err) {
-     res.status(500).json({ message: "Server error" });
-   }
- });
+    const token = generateToken(user._id);
+    res.json({ token, user: { id: user._id, fullname: user.fullname, email } });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Get All Users (Customers)
 app.get("/customers", async (req, res) => {
@@ -87,7 +80,6 @@ app.get("/customers", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 // Delete User
 app.delete("/customers/:id", async (req, res) => {
@@ -103,10 +95,6 @@ app.delete("/customers/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
-
 
 // ===== Create Product ======
 
@@ -130,15 +118,30 @@ app.post("/products", upload.single("image"), async (req, res) => {
       });
     } catch (blobError) {
       console.error("BLOB_ERROR:", blobError);
-      return res.status(500).json({ error: "Vercel Blob storage failed", details: blobError.message });
+      return res
+        .status(500)
+        .json({
+          error: "Vercel Blob storage failed",
+          details: blobError.message,
+        });
     }
 
-    const { title, price, category, description, color, inStock, discount, model, brand } = req.body;
+    const {
+      title,
+      price,
+      category,
+      description,
+      color,
+      inStock,
+      discount,
+      model,
+      brand,
+    } = req.body;
 
     const newProduct = new Product({
       title,
       image: blob.url,
-      price: Number(price), 
+      price: Number(price),
       category,
       description,
       discount: Number(discount) || 0,
@@ -160,13 +163,7 @@ app.post("/products", upload.single("image"), async (req, res) => {
 // ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {
-    const {
-      selectCategory,
-      minPrice,
-      maxPrice,
-      search,
-      limit,
-    } = req.query;
+    const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
 
     const filter = {};
 
@@ -253,7 +250,6 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-
 const protect = require("./middleware/authMiddleware");
 
 app.post("/orders", protect, async (req, res) => {
@@ -263,7 +259,7 @@ app.post("/orders", protect, async (req, res) => {
     let subtotal = 0;
     let discount = 0;
 
-    items.forEach(item => {
+    items.forEach((item) => {
       subtotal += item.price * item.qty;
       discount += (item.discount || 0) * item.qty;
     });
@@ -290,7 +286,6 @@ app.post("/orders", protect, async (req, res) => {
   }
 });
 
-
 app.get("/orders/my", protect, async (req, res) => {
   const orders = await Order.find({ user: req.user._id })
     .populate("items.product", "title image price")
@@ -298,9 +293,6 @@ app.get("/orders/my", protect, async (req, res) => {
 
   res.json(orders);
 });
-
-
-
 
 // ===== Create Offer =====
 
@@ -394,7 +386,7 @@ app.put("/offers/:id", async (req, res) => {
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     if (!updatedOffer) {
