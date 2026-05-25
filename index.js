@@ -3,10 +3,10 @@ const express = require("express"); // imprting express package
 const mongoose = require("mongoose"); // imprting mongoose package
 const cors = require("cors");
 const compression = require("compression");
-const User = require("./models/Users");
-const Order = require("./models/Orders");
-const Product = require("./models/Products");
-const Offer = require("./models/Offers");
+const User = require("./models/users");
+const Product = require("./models/products");
+const Order = require("./models/orders");
+const Offer = require("./models/offers");
 const jwt = require("jsonwebtoken");
 
 const app = express();
