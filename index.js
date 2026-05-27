@@ -1,6 +1,6 @@
 require("dotenv").config(); // for environment variables
-const express = require("express"); // imprting express package
-const mongoose = require("mongoose"); // imprting mongoose package
+const express = require("express"); // importing express package
+const mongoose = require("mongoose"); // importing mongoose package
 const cors = require("cors");
 const compression = require("compression");
 const User = require("./models/user");
@@ -8,28 +8,60 @@ const Product = require("./models/product");
 const Order = require("./models/test");
 const Offer = require("./models/offer");
 const jwt = require("jsonwebtoken");
+const { put } = require("@vercel/blob");
+const upload = require("./middleware/upload");
+const protect = require("./middleware/authMiddleware");
 
 const app = express();
 
 app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(compression());
 app.use(cors());
-console.log("Mongo URL:", process.env.MONGODB_URL);
 
-mongoose
-  .connect(process.env.MONGODB_URL)
-  .then(() => console.log("✅ Connected successfully to MongoDB Atlas"))
-  .catch((error) => console.error("❌ MongoDB connection error:", error));
+// --- إعداد الاتصال بالسيرفرات السحابية (SERVERLESS DB MIDDLEWARE) ---
+let isConnected = false;
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`im listening to port: ${PORT}`);
+const connectDB = async () => {
+  if (isConnected) {
+    return; // استخدام الاتصال الكاش لو موجود
+  }
+
+  try {
+    mongoose.set('strictQuery', true);
+    
+    // التعديل هنا: أضفنا خيارات لمنع مشاكل الـ DNS مع Cloudflare و Vercel
+    await mongoose.connect(process.env.MONGODB_URL, {
+      connectTimeoutMS: 30000, // زيادة وقت الانتظار لـ 30 ثانية منعاً للـ Timeout
+      socketTimeoutMS: 30000,
+    });
+    
+    isConnected = true;
+    console.log("✅ Connected successfully to MongoDB Atlas");
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error);
+    throw error;
+  }
+};
+
+// ميديالوير عالمي للتأكد من جاهزية الداتا بيز قبل تنفيذ أي ريكويست
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ error: "Database connection failed", details: err.message });
+  }
 });
+// -------------------------------------------------------------
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
+
+// ============================================
+// AUTHENTICATION ROUTES
+// ============================================
 
 // Register
 app.post("/signup", async (req, res) => {
@@ -41,13 +73,11 @@ app.post("/signup", async (req, res) => {
 
     user = new User({ fullname, email, password });
     await user.save();
-    console.log("JWT_SECRET:", process.env.JWT_SECRET);
-    console.log("JWT_EXPIRES_IN:", process.env.JWT_EXPIRES_IN);
 
     const token = generateToken(user._id);
     res.status(201).json({ token, user: { id: user._id, fullname, email } });
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -70,6 +100,10 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// ============================================
+// CUSTOMER ROUTES
+// ============================================
 
 // Get All Users (Customers)
 app.get("/customers", async (req, res) => {
@@ -96,11 +130,9 @@ app.delete("/customers/:id", async (req, res) => {
   }
 });
 
-// ===== Create Product ======
-
-console.log("Token exists:", !!process.env.BLOB_READ_WRITE_TOKEN);
-const { put } = require("@vercel/blob");
-const upload = require("./middleware/upload");
+// ============================================
+// PRODUCT ROUTES
+// ============================================
 
 // ===== Add New Product ======
 app.post("/products", upload.single("image"), async (req, res) => {
@@ -118,12 +150,10 @@ app.post("/products", upload.single("image"), async (req, res) => {
       });
     } catch (blobError) {
       console.error("BLOB_ERROR:", blobError);
-      return res
-        .status(500)
-        .json({
-          error: "Vercel Blob storage failed",
-          details: blobError.message,
-        });
+      return res.status(500).json({
+        error: "Vercel Blob storage failed",
+        details: blobError.message,
+      });
     }
 
     const {
@@ -151,7 +181,7 @@ app.post("/products", upload.single("image"), async (req, res) => {
       model,
     });
 
-    // 3. Save to MongoDB
+    // 2. Save to MongoDB
     await newProduct.save();
 
     res.status(201).json({ message: "Product created", product: newProduct });
@@ -160,11 +190,11 @@ app.post("/products", upload.single("image"), async (req, res) => {
     res.status(500).json({ error: "Server crashed", details: err.message });
   }
 });
+
 // ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {
     const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
-
     const filter = {};
 
     /* Category filter */
@@ -250,7 +280,9 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-const protect = require("./middleware/authMiddleware");
+// ============================================
+// ORDER ROUTES
+// ============================================
 
 app.post("/orders", protect, async (req, res) => {
   try {
@@ -287,15 +319,22 @@ app.post("/orders", protect, async (req, res) => {
 });
 
 app.get("/orders/my", protect, async (req, res) => {
-  const orders = await Order.find({ user: req.user._id })
-    .populate("items.product", "title image price")
-    .sort({ createdAt: -1 });
+  try {
+    const orders = await Order.find({ user: req.user._id })
+      .populate("items.product", "title image price")
+      .sort({ createdAt: -1 });
 
-  res.json(orders);
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch orders" });
+  }
 });
 
-// ===== Create Offer =====
+// ============================================
+// OFFER ROUTES
+// ============================================
 
+// ===== Create Offer =====
 app.post("/offers", async (req, res) => {
   try {
     const {
@@ -333,7 +372,6 @@ app.post("/offers", async (req, res) => {
 });
 
 // ===== Get All Offers =====
-
 app.get("/offers", async (req, res) => {
   try {
     const offers = await Offer.find()
@@ -349,7 +387,6 @@ app.get("/offers", async (req, res) => {
 });
 
 // ===== Get Active Offers =====
-
 app.get("/offers/active", async (req, res) => {
   try {
     const now = new Date();
@@ -377,7 +414,6 @@ app.get("/offers/active", async (req, res) => {
 });
 
 // ===== Update Offer =====
-
 app.put("/offers/:id", async (req, res) => {
   try {
     const updatedOffer = await Offer.findByIdAndUpdate(
@@ -407,7 +443,6 @@ app.put("/offers/:id", async (req, res) => {
 });
 
 // ===== Delete Offer =====
-
 app.delete("/offers/:id", async (req, res) => {
   try {
     const deletedOffer = await Offer.findByIdAndDelete(req.params.id);
@@ -427,3 +462,16 @@ app.delete("/offers/:id", async (req, res) => {
     });
   }
 });
+
+// --- إدارة تشغيل السيرفر محلياً / سحابياً ---
+const PORT = process.env.PORT || 8080;
+
+// شرط لمنع استدعاء السيرفر مرتين في بيئة Vercel
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server listening locally on port: ${PORT}`);
+  });
+}
+
+// تصدير التطبيق لمنصة Vercel لتتمكن من تشغيل الـ Serverless Functions
+module.exports = app;
