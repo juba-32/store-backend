@@ -27,14 +27,14 @@ const connectDB = async () => {
   }
 
   try {
-    mongoose.set('strictQuery', true);
-    
+    mongoose.set("strictQuery", true);
+
     // التعديل هنا: أضفنا خيارات لمنع مشاكل الـ DNS مع Cloudflare و Vercel
     await mongoose.connect(process.env.MONGODB_URL, {
       connectTimeoutMS: 30000, // زيادة وقت الانتظار لـ 30 ثانية منعاً للـ Timeout
       socketTimeoutMS: 30000,
     });
-    
+
     isConnected = true;
     console.log("✅ Connected successfully to MongoDB Atlas");
   } catch (error) {
@@ -49,7 +49,9 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (err) {
-    res.status(500).json({ error: "Database connection failed", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Database connection failed", details: err.message });
   }
 });
 // -------------------------------------------------------------
@@ -142,24 +144,27 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
       return res.status(400).json({ error: "No images uploaded" });
     }
 
-    // 1. الرفع المتعدد إلى Vercel Blob باستخدام Promise.all
     let imageUrls = [];
+
     try {
-      const uploadPromises = req.files.map((file) => 
-        put(file.originalname, file.buffer, {
+      for (const file of req.files) {
+        // 1. توليد اسم فريد تماماً لكل صورة (الوقت الحالي + رقم عشوائي + الاسم الأصلي)
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        const uniqueFileName = `${uniqueSuffix}-${file.originalname}`;
+
+        // 2. تمرير خاصية allowOverwrite لـ Vercel Blob
+        const blob = await put(uniqueFileName, file.buffer, {
           access: "public",
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        })
-      );
-      
-      // تنفيذ كافة عمليات الرفع بالتوازي لضمان السرعة الكفاءة
-      const blobs = await Promise.all(uploadPromises);
-      // استخراج الروابط الحقيقية بعد انتهاء الرفع
-      imageUrls = blobs.map((blob) => blob.url);
+          token: token,
+          allowOverwrite: true, // الكلمة السحرية المذكورة في رسالة الخطأ!
+        });
+
+        imageUrls.push(blob.url);
+      }
     } catch (blobError) {
-      console.error("BLOB_ARRAY_ERROR:", blobError);
+      console.error("DETAILED_BLOB_ERROR:", blobError);
       return res.status(500).json({
-        error: "Vercel Blob storage failed for multiple uploads",
+        error: "Vercel Blob storage failed during sequence upload",
         details: blobError.message,
       });
     }
@@ -179,9 +184,9 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
     const newProduct = new Product({
       title,
       // للحفاظ على التوافق: نضع الصورة الأولى كالصورة الأساسية (image)
-      image: imageUrls[0], 
+      image: imageUrls[0],
       // والمصفوفة كاملة تحتوي على الـ 4 صور التي ستعمل سكرول عند الهوفر
-      images: imageUrls, 
+      images: imageUrls,
       price: Number(price),
       category,
       description,
@@ -195,7 +200,9 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
     // 2. الحفظ في MongoDB
     await newProduct.save();
 
-    res.status(201).json({ message: "Product created with 4 images", product: newProduct });
+    res
+      .status(201)
+      .json({ message: "Product created with 4 images", product: newProduct });
   } catch (err) {
     console.error("GENERAL_ERROR:", err);
     res.status(500).json({ error: "Server crashed", details: err.message });
