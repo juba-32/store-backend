@@ -143,7 +143,7 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "No images uploaded" });
     }
-
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
     let imageUrls = [];
 
     try {
