@@ -135,23 +135,31 @@ app.delete("/customers/:id", async (req, res) => {
 // ============================================
 
 // ===== Add New Product ======
-app.post("/products", upload.single("image"), async (req, res) => {
+app.post("/products", upload.array("images", 4), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No image uploaded" });
+    // التأكد من أن المستخدم رفع ملفات بالفعل
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No images uploaded" });
     }
 
-    // 1. Upload to Vercel Blob
-    let blob;
+    // 1. الرفع المتعدد إلى Vercel Blob باستخدام Promise.all
+    let imageUrls = [];
     try {
-      blob = await put(req.file.originalname, req.file.buffer, {
-        access: "public",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
+      const uploadPromises = req.files.map((file) => 
+        put(file.originalname, file.buffer, {
+          access: "public",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        })
+      );
+      
+      // تنفيذ كافة عمليات الرفع بالتوازي لضمان السرعة الكفاءة
+      const blobs = await Promise.all(uploadPromises);
+      // استخراج الروابط الحقيقية بعد انتهاء الرفع
+      imageUrls = blobs.map((blob) => blob.url);
     } catch (blobError) {
-      console.error("BLOB_ERROR:", blobError);
+      console.error("BLOB_ARRAY_ERROR:", blobError);
       return res.status(500).json({
-        error: "Vercel Blob storage failed",
+        error: "Vercel Blob storage failed for multiple uploads",
         details: blobError.message,
       });
     }
@@ -170,7 +178,10 @@ app.post("/products", upload.single("image"), async (req, res) => {
 
     const newProduct = new Product({
       title,
-      image: blob.url,
+      // للحفاظ على التوافق: نضع الصورة الأولى كالصورة الأساسية (image)
+      image: imageUrls[0], 
+      // والمصفوفة كاملة تحتوي على الـ 4 صور التي ستعمل سكرول عند الهوفر
+      images: imageUrls, 
       price: Number(price),
       category,
       description,
@@ -181,10 +192,10 @@ app.post("/products", upload.single("image"), async (req, res) => {
       model,
     });
 
-    // 2. Save to MongoDB
+    // 2. الحفظ في MongoDB
     await newProduct.save();
 
-    res.status(201).json({ message: "Product created", product: newProduct });
+    res.status(201).json({ message: "Product created with 4 images", product: newProduct });
   } catch (err) {
     console.error("GENERAL_ERROR:", err);
     res.status(500).json({ error: "Server crashed", details: err.message });
