@@ -295,7 +295,7 @@ app.put("/products/:id", async (req, res) => {
 // ============================================
 // ORDER ROUTES
 // ============================================
-app.get("/orders", protect, admin, async (req, res) => {
+app.get("/orders", protect, async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("user", "name email")
