@@ -344,7 +344,6 @@ app.post("/orders", async (req, res) => {
       paymentMethod,
     });
 
-    req.user.cart = [];
     await req.user.save();
 
     res.status(201).json(order);
