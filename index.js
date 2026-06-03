@@ -295,20 +295,22 @@ app.put("/products/:id", async (req, res) => {
 // ============================================
 // ORDER ROUTES
 // ============================================
-app.get("/orders", protect, async (req, res) => {
+app.get("/orders", async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate("user", "fullname email") 
+      .populate("user", "fullname email")
       .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (err) {
     console.error("❌ Error fetching orders:", err);
-    res.status(500).json({ message: "Failed to fetch orders", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch orders", error: err.message });
   }
 });
 
-app.post("/orders", async (req, res) => {
+app.post("/orders", protect, async (req, res) => {
   try {
     const { items, shippingInfo, paymentMethod } = req.body;
 
@@ -329,7 +331,7 @@ app.post("/orders", async (req, res) => {
           qty: item.qty,
           price: product.price,
         };
-      })
+      }),
     );
 
     const total = subtotal - discount;
@@ -344,8 +346,6 @@ app.post("/orders", async (req, res) => {
       paymentMethod,
     });
 
-    await req.user.save();
-//lhjd[d]
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ message: "Order creation failed" });
@@ -354,8 +354,9 @@ app.post("/orders", async (req, res) => {
 
 app.get("/orders/my", protect, async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    const orders = await Order.find({ user: req.user._id }).sort({
+      createdAt: -1,
+    });
 
     res.json(orders);
   } catch (err) {
@@ -367,11 +368,11 @@ app.get("/orders/my", protect, async (req, res) => {
 app.put("/orders/:id", protect, async (req, res) => {
   try {
     const { status } = req.body;
-    
+
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       { status },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedOrder) {
@@ -383,7 +384,9 @@ app.put("/orders/:id", protect, async (req, res) => {
       order: updatedOrder,
     });
   } catch (err) {
-    res.status(500).json({ message: "Failed to update order status", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to update order status", error: err.message });
   }
 });
 
