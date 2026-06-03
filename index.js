@@ -5,7 +5,7 @@ const cors = require("cors");
 const compression = require("compression");
 const User = require("./models/user");
 const Product = require("./models/product");
-const Order = require("./models/test");
+const Order = require("./models/order");
 const Offer = require("./models/offer");
 const jwt = require("jsonwebtoken");
 const { put } = require("@vercel/blob");
@@ -298,12 +298,13 @@ app.put("/products/:id", async (req, res) => {
 app.get("/orders", protect, async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate("user", "name email")
+      .populate("user", "fullname email") 
       .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch orders" });
+    console.error("❌ Error fetching orders:", err);
+    res.status(500).json({ message: "Failed to fetch orders", error: err.message });
   }
 });
 
