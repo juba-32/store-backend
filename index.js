@@ -364,9 +364,6 @@ app.get("/orders/my", protect, async (req, res) => {
   }
 });
 
-// ============================================
-// OFFER ROUTES
-// ============================================
 
 // ===== Create Offer =====
 app.post("/offers", async (req, res) => {
