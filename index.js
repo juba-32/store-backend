@@ -365,6 +365,29 @@ app.get("/orders/my", protect, async (req, res) => {
   }
 });
 
+// ===== Update Order Status By ID =====
+app.put("/orders/:id", protect, async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      message: "Order status updated successfully",
+      order: updatedOrder,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update order status", error: err.message });
+  }
+});
 
 // ===== Create Offer =====
 app.post("/offers", async (req, res) => {
