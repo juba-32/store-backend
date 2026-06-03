@@ -139,7 +139,6 @@ app.delete("/customers/:id", async (req, res) => {
 // ===== Add New Product ======
 app.post("/products", upload.array("images", 4), async (req, res) => {
   try {
-    // التأكد من أن المستخدم رفع ملفات بالفعل
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "No images uploaded" });
     }
@@ -148,15 +147,13 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
 
     try {
       for (const file of req.files) {
-        // 1. توليد اسم فريد تماماً لكل صورة (الوقت الحالي + رقم عشوائي + الاسم الأصلي)
         const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
         const uniqueFileName = `${uniqueSuffix}-${file.originalname}`;
 
-        // 2. تمرير خاصية allowOverwrite لـ Vercel Blob
         const blob = await put(uniqueFileName, file.buffer, {
           access: "public",
           token: token,
-          allowOverwrite: true, // الكلمة السحرية المذكورة في رسالة الخطأ!
+          allowOverwrite: true,
         });
 
         imageUrls.push(blob.url);
@@ -183,9 +180,7 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
 
     const newProduct = new Product({
       title,
-      // للحفاظ على التوافق: نضع الصورة الأولى كالصورة الأساسية (image)
       image: imageUrls[0],
-      // والمصفوفة كاملة تحتوي على الـ 4 صور التي ستعمل سكرول عند الهوفر
       images: imageUrls,
       price: Number(price),
       category,
@@ -197,7 +192,6 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
       model,
     });
 
-    // 2. الحفظ في MongoDB
     await newProduct.save();
 
     res
@@ -301,6 +295,17 @@ app.put("/products/:id", async (req, res) => {
 // ============================================
 // ORDER ROUTES
 // ============================================
+app.get("/orders", protect, admin, async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch orders" });
+  }
+});
 
 app.post("/orders", protect, async (req, res) => {
   try {
@@ -309,16 +314,28 @@ app.post("/orders", protect, async (req, res) => {
     let subtotal = 0;
     let discount = 0;
 
-    items.forEach((item) => {
-      subtotal += item.price * item.qty;
-      discount += (item.discount || 0) * item.qty;
-    });
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        const product = await Product.findById(item.product);
+
+        subtotal += product.price * item.qty;
+        discount += (item.discount || 0) * item.qty;
+
+        return {
+          product: product._id,
+          title: product.title,
+          image: product.image,
+          qty: item.qty,
+          price: product.price,
+        };
+      })
+    );
 
     const total = subtotal - discount;
 
     const order = await Order.create({
       user: req.user._id,
-      items,
+      items: enrichedItems,
       subtotal,
       discount,
       total,
@@ -326,7 +343,7 @@ app.post("/orders", protect, async (req, res) => {
       paymentMethod,
     });
 
-    // Clear user cart after successful order
+    // clear cart (في user schema)
     req.user.cart = [];
     await req.user.save();
 
@@ -339,7 +356,6 @@ app.post("/orders", protect, async (req, res) => {
 app.get("/orders/my", protect, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
-      .populate("items.product", "title image price")
       .sort({ createdAt: -1 });
 
     res.json(orders);
@@ -481,15 +497,12 @@ app.delete("/offers/:id", async (req, res) => {
   }
 });
 
-// --- إدارة تشغيل السيرفر محلياً / سحابياً ---
 const PORT = process.env.PORT || 8080;
 
-// شرط لمنع استدعاء السيرفر مرتين في بيئة Vercel
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`🚀 Server listening locally on port: ${PORT}`);
   });
 }
 
-// تصدير التطبيق لمنصة Vercel لتتمكن من تشغيل الـ Serverless Functions
 module.exports = app;
