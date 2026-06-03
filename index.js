@@ -308,7 +308,7 @@ app.get("/orders", protect, async (req, res) => {
   }
 });
 
-app.post("/orders", protect, async (req, res) => {
+app.post("/orders", async (req, res) => {
   try {
     const { items, shippingInfo, paymentMethod } = req.body;
 
@@ -344,7 +344,6 @@ app.post("/orders", protect, async (req, res) => {
       paymentMethod,
     });
 
-    // clear cart (في user schema)
     req.user.cart = [];
     await req.user.save();
 
