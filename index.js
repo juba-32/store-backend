@@ -345,7 +345,7 @@ app.post("/orders", async (req, res) => {
     });
 
     await req.user.save();
-
+//lhjd[d]
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ message: "Order creation failed" });
