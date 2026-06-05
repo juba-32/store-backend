@@ -557,46 +557,7 @@ app.delete("/offers/:id", async (req, res) => {
   }
 });
 
-// ⚠️ رابط مؤقت لتحديث البيانات القديمة (شغله مرة واحدة فقط في المتصفح ثم احذفه)
-app.get("/admin/migrate-products", async (req, res) => {
-  try {
-    const products = await Product.find({});
-    let updatedCount = 0;
 
-    for (let pro of products) {
-      let updated = false;
-
-      // إذا كان العنوان نصاً عادياً، حوله إلى كائن
-      if (typeof pro.title === "string") {
-        pro.title = { en: pro.title, ar: pro.title };
-        updated = true;
-      }
-
-      // إذا كان الوصف نصاً عادياً، حوله إلى كائن
-      if (typeof pro.description === "string") {
-        pro.description = { en: pro.description, ar: pro.description };
-        updated = true;
-      }
-
-      // إذا كانت الفئة نصاً عادياً، حولها إلى كائن
-      if (typeof pro.category === "string") {
-        pro.category = { en: pro.category, ar: pro.category };
-        updated = true;
-      }
-
-      if (updated) {
-        await pro.save();
-        updatedCount++;
-      }
-    }
-
-    res.status(200).json({ 
-      message: `Migration successful! Updated ${updatedCount} products.` 
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 const PORT = process.env.PORT || 8080;
 
