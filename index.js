@@ -29,7 +29,7 @@ const connectDB = async () => {
   try {
     mongoose.set("strictQuery", true);
 
-    // التعديل هنا: أضفنا خيارات لمنع مشاكل الـ DNS مع Cloudflare و Vercel
+    // خيارات لمنع مشاكل الـ DNS مع Cloudflare و Vercel
     await mongoose.connect(process.env.MONGODB_URL, {
       connectTimeoutMS: 30000, // زيادة وقت الانتظار لـ 30 ثانية منعاً للـ Timeout
       socketTimeoutMS: 30000,
@@ -133,7 +133,7 @@ app.delete("/customers/:id", async (req, res) => {
 });
 
 // ============================================
-// PRODUCT ROUTES
+// PRODUCT ROUTES (Multi-language Support)
 // ============================================
 
 // ===== Add New Product ======
@@ -166,7 +166,7 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
       });
     }
 
-    const {
+    let {
       title,
       price,
       category,
@@ -177,6 +177,22 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
       model,
       brand,
     } = req.body;
+
+    // 💡 تحويل النصوص المترجمة القادمة من الـ Form-Data إلى Objects
+    try {
+      if (typeof title === "string") title = JSON.parse(title);
+      if (typeof description === "string") description = JSON.parse(description);
+      if (typeof category === "string") category = JSON.parse(category);
+    } catch (parseError) {
+      return res.status(400).json({ 
+        error: "Title, Description, and Category must be valid JSON objects containing 'en' and 'ar'" 
+      });
+    }
+
+    // التحقق من وجود اللغتين لكل الحقول الحيوية
+    if (!title?.en || !title?.ar || !description?.en || !description?.ar || !category?.en || !category?.ar) {
+      return res.status(400).json({ error: "English and Arabic translations are required for title, description, and category" });
+    }
 
     const newProduct = new Product({
       title,
@@ -194,24 +210,25 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
 
     await newProduct.save();
 
-    res
-      .status(201)
-      .json({ message: "Product created with 4 images", product: newProduct });
+    res.status(201).json({ message: "Product created with 4 images", product: newProduct });
   } catch (err) {
     console.error("GENERAL_ERROR:", err);
     res.status(500).json({ error: "Server crashed", details: err.message });
   }
 });
 
-// ===== Get all Products ======
+// ===== Get all Products (مع الفلترة والبحث الذكي للغتين) ======
 app.get("/products", async (req, res) => {
   try {
     const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
     const filter = {};
 
-    /* Category filter */
+    /* 💡 فلترة الـ Category الذكية باللغتين العربي والإنجليزي */
     if (selectCategory) {
-      filter.category = { $regex: selectCategory, $options: "i" };
+      filter.$or = [
+        { "category.en": { $regex: selectCategory, $options: "i" } },
+        { "category.ar": { $regex: selectCategory, $options: "i" } }
+      ];
     }
 
     /* Price filter */
@@ -221,11 +238,16 @@ app.get("/products", async (req, res) => {
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
 
-    /* Search filter */
+    /* 💡 البحث الشامل بداخل الـ Objects متعددة اللغات (العناوين، الوصف، والأقسام) */
     if (search?.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: "i" };
       filter.$or = [
-        { title: { $regex: search.trim(), $options: "i" } },
-        { description: { $regex: search.trim(), $options: "i" } },
+        { "title.en": searchRegex },
+        { "title.ar": searchRegex },
+        { "description.en": searchRegex },
+        { "description.ar": searchRegex },
+        { "category.en": searchRegex },
+        { "category.ar": searchRegex },
         { brand: { $regex: search.trim(), $options: "i" } },
       ];
     }
@@ -278,17 +300,29 @@ app.delete("/products/:id", async (req, res) => {
 // ===== Update Product By ID ======
 app.put("/products/:id", async (req, res) => {
   try {
+    let updateData = { ...req.body };
+
+    // معالجة النصوص وحفظها كـ Objects إذا تم تحديثها من فورم عادية
+    if (typeof updateData.title === "string") updateData.title = JSON.parse(updateData.title);
+    if (typeof updateData.description === "string") updateData.description = JSON.parse(updateData.description);
+    if (typeof updateData.category === "string") updateData.category = JSON.parse(updateData.category);
+
     const updateProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true },
+      updateData,
+      { new: true, runValidators: true }
     );
+
+    if (!updateProduct) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
     res.status(200).json({
       message: "Product updated successfully",
       product: updateProduct,
     });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 });
 
@@ -389,6 +423,10 @@ app.put("/orders/:id", protect, async (req, res) => {
       .json({ message: "Failed to update order status", error: err.message });
   }
 });
+
+// ============================================
+// OFFER ROUTES
+// ============================================
 
 // ===== Create Offer =====
 app.post("/offers", async (req, res) => {
@@ -519,12 +557,53 @@ app.delete("/offers/:id", async (req, res) => {
   }
 });
 
+// ⚠️ رابط مؤقت لتحديث البيانات القديمة (شغله مرة واحدة فقط في المتصفح ثم احذفه)
+app.get("/admin/migrate-products", async (req, res) => {
+  try {
+    const products = await Product.find({});
+    let updatedCount = 0;
+
+    for (let pro of products) {
+      let updated = false;
+
+      // إذا كان العنوان نصاً عادياً، حوله إلى كائن
+      if (typeof pro.title === "string") {
+        pro.title = { en: pro.title, ar: pro.title };
+        updated = true;
+      }
+
+      // إذا كان الوصف نصاً عادياً، حوله إلى كائن
+      if (typeof pro.description === "string") {
+        pro.description = { en: pro.description, ar: pro.description };
+        updated = true;
+      }
+
+      // إذا كانت الفئة نصاً عادياً، حولها إلى كائن
+      if (typeof pro.category === "string") {
+        pro.category = { en: pro.category, ar: pro.category };
+        updated = true;
+      }
+
+      if (updated) {
+        await pro.save();
+        updatedCount++;
+      }
+    }
+
+    res.status(200).json({ 
+      message: `Migration successful! Updated ${updatedCount} products.` 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`🚀 Server listening locally on port: ${PORT}`);
-  });
+    });
 }
 
 module.exports = app;
