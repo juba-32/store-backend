@@ -467,7 +467,7 @@ app.post("/offers", async (req, res) => {
 app.get("/offers", async (req, res) => {
   try {
     const offers = await Offer.find()
-      .populate("product", "title image price")
+      .populate("products", "title image price")
       .sort({ createdAt: -1 });
 
     res.status(200).json(offers);
@@ -495,7 +495,7 @@ app.get("/offers/active", async (req, res) => {
           endDate: null,
         },
       ],
-    }).populate("product", "title image price");
+    }).populate("products", "title image price");
 
     res.json(offers);
   } catch (err) {
