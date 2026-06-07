@@ -433,7 +433,7 @@ app.post("/offers", async (req, res) => {
       title,
       description,
       discountPercentage,
-      products, // 👈 غيرناها من product لـ products عشان تستقبل الـ Array
+      products,
       startDate,
       endDate,
       isActive,
@@ -443,8 +443,8 @@ app.post("/offers", async (req, res) => {
       title,
       description,
       discountPercentage,
-      products: products || [], // 👈 حفظ المصفوفة هنا
-      startDate: new Date(startDate), // تأمين صيغة التاريخ
+      products: products || [], 
+      startDate: new Date(startDate), 
       endDate: new Date(endDate),
       isActive,
     });
@@ -508,14 +508,32 @@ app.get("/offers/active", async (req, res) => {
 // ===== Update Offer =====
 app.put("/offers/:id", async (req, res) => {
   try {
+    const { title, description, discountPercentage, products, startDate, endDate, isActive } = req.body;
+
+    // بناء أوبجكت التحديث وتأمين الداتا
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (discountPercentage !== undefined) updateData.discountPercentage = Number(discountPercentage);
+    if (isActive !== undefined) updateData.isActive = isActive;
+    
+    // تأمين تحويل التواريخ لكائن Date حقيقي عشان الـ Validators ميزعلوش
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate) updateData.endDate = new Date(endDate);
+
+    // تأمين مصفوفة المنتجات (الجمع)
+    if (products !== undefined) {
+      updateData.products = Array.isArray(products) ? products : [];
+    }
+
     const updatedOffer = await Offer.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { $set: updateData }, // استخدام $set أضمن وأقوى في الـ Update
       {
-        new: true,
+        new: true, // يرجعلك الأوبجكت بعد التعديل مش قبله
         runValidators: true,
-      },
-    );
+      }
+    ).populate("products", "title image price"); // بالمرة عشان يرجعلك البيانات متفصصة للفرونت إند
 
     if (!updatedOffer) {
       return res.status(404).json({
@@ -528,8 +546,10 @@ app.put("/offers/:id", async (req, res) => {
       offer: updatedOffer,
     });
   } catch (err) {
+    console.error("Error updating offer:", err); // دي عشان لو فشل برضه يطبعلك السبب بالظبط في الـ Terminal
     res.status(500).json({
       message: "Offer update failed",
+      error: err.message, // بنرجع الـ message عشان تعرف لو السكيمة قفشت في Validation معينة
     });
   }
 });
