@@ -217,13 +217,12 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
   }
 });
 
-// ===== Get all Products (مع الفلترة والبحث الذكي للغتين) ======
+// ===== Get all Products ======
 app.get("/products", async (req, res) => {
   try {
     const { selectCategory, minPrice, maxPrice, search, limit } = req.query;
     const filter = {};
 
-    /* 💡 فلترة الـ Category الذكية باللغتين العربي والإنجليزي */
     if (selectCategory) {
       filter.$or = [
         { "category.en": { $regex: selectCategory, $options: "i" } },
@@ -238,7 +237,6 @@ app.get("/products", async (req, res) => {
       if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
 
-    /* 💡 البحث الشامل بداخل الـ Objects متعددة اللغات (العناوين، الوصف، والأقسام) */
     if (search?.trim()) {
       const searchRegex = { $regex: search.trim(), $options: "i" };
       filter.$or = [
@@ -435,7 +433,7 @@ app.post("/offers", async (req, res) => {
       title,
       description,
       discountPercentage,
-      product,
+      products, // 👈 غيرناها من product لـ products عشان تستقبل الـ Array
       startDate,
       endDate,
       isActive,
@@ -445,9 +443,9 @@ app.post("/offers", async (req, res) => {
       title,
       description,
       discountPercentage,
-      product,
-      startDate,
-      endDate,
+      products: products || [], // 👈 حفظ المصفوفة هنا
+      startDate: new Date(startDate), // تأمين صيغة التاريخ
+      endDate: new Date(endDate),
       isActive,
     });
 

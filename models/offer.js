@@ -20,27 +20,25 @@ const offerSchema = new mongoose.Schema(
       max: 100,
     },
 
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-    },
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
 
-    startDate: {
-      type: Date,
-    },
-
-    endDate: {
-      type: Date,
-    },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
 
     isActive: {
       type: Boolean,
       default: true,
+      required: true,
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Offer", offerSchema);
