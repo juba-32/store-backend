@@ -399,7 +399,7 @@ app.get("/orders/my", protect, async (req, res) => {
 });
 
 // ===== Update Order Status By ID =====
-app.put("/orders/:id", protect, async (req, res) => {
+app.put("/orders/:id", async (req, res) => {
   try {
     const { status } = req.body;
 
