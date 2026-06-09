@@ -181,17 +181,31 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
     // 💡 تحويل النصوص المترجمة القادمة من الـ Form-Data إلى Objects
     try {
       if (typeof title === "string") title = JSON.parse(title);
-      if (typeof description === "string") description = JSON.parse(description);
+      if (typeof description === "string")
+        description = JSON.parse(description);
       if (typeof category === "string") category = JSON.parse(category);
     } catch (parseError) {
-      return res.status(400).json({ 
-        error: "Title, Description, and Category must be valid JSON objects containing 'en' and 'ar'" 
+      return res.status(400).json({
+        error:
+          "Title, Description, and Category must be valid JSON objects containing 'en' and 'ar'",
       });
     }
 
     // التحقق من وجود اللغتين لكل الحقول الحيوية
-    if (!title?.en || !title?.ar || !description?.en || !description?.ar || !category?.en || !category?.ar) {
-      return res.status(400).json({ error: "English and Arabic translations are required for title, description, and category" });
+    if (
+      !title?.en ||
+      !title?.ar ||
+      !description?.en ||
+      !description?.ar ||
+      !category?.en ||
+      !category?.ar
+    ) {
+      return res
+        .status(400)
+        .json({
+          error:
+            "English and Arabic translations are required for title, description, and category",
+        });
     }
 
     const newProduct = new Product({
@@ -210,7 +224,9 @@ app.post("/products", upload.array("images", 4), async (req, res) => {
 
     await newProduct.save();
 
-    res.status(201).json({ message: "Product created with 4 images", product: newProduct });
+    res
+      .status(201)
+      .json({ message: "Product created with 4 images", product: newProduct });
   } catch (err) {
     console.error("GENERAL_ERROR:", err);
     res.status(500).json({ error: "Server crashed", details: err.message });
@@ -226,7 +242,7 @@ app.get("/products", async (req, res) => {
     if (selectCategory) {
       filter.$or = [
         { "category.en": { $regex: selectCategory, $options: "i" } },
-        { "category.ar": { $regex: selectCategory, $options: "i" } }
+        { "category.ar": { $regex: selectCategory, $options: "i" } },
       ];
     }
 
@@ -301,14 +317,17 @@ app.put("/products/:id", async (req, res) => {
     let updateData = { ...req.body };
 
     // معالجة النصوص وحفظها كـ Objects إذا تم تحديثها من فورم عادية
-    if (typeof updateData.title === "string") updateData.title = JSON.parse(updateData.title);
-    if (typeof updateData.description === "string") updateData.description = JSON.parse(updateData.description);
-    if (typeof updateData.category === "string") updateData.category = JSON.parse(updateData.category);
+    if (typeof updateData.title === "string")
+      updateData.title = JSON.parse(updateData.title);
+    if (typeof updateData.description === "string")
+      updateData.description = JSON.parse(updateData.description);
+    if (typeof updateData.category === "string")
+      updateData.category = JSON.parse(updateData.category);
 
     const updateProduct = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updateProduct) {
@@ -443,8 +462,8 @@ app.post("/offers", async (req, res) => {
       title,
       description,
       discountPercentage,
-      products: products || [], 
-      startDate: new Date(startDate), 
+      products: products || [],
+      startDate: new Date(startDate),
       endDate: new Date(endDate),
       isActive,
     });
@@ -508,15 +527,24 @@ app.get("/offers/active", async (req, res) => {
 // ===== Update Offer =====
 app.put("/offers/:id", async (req, res) => {
   try {
-    const { title, description, discountPercentage, products, startDate, endDate, isActive } = req.body;
+    const {
+      title,
+      description,
+      discountPercentage,
+      products,
+      startDate,
+      endDate,
+      isActive,
+    } = req.body;
 
     // بناء أوبجكت التحديث وتأمين الداتا
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
-    if (discountPercentage !== undefined) updateData.discountPercentage = Number(discountPercentage);
+    if (discountPercentage !== undefined)
+      updateData.discountPercentage = Number(discountPercentage);
     if (isActive !== undefined) updateData.isActive = isActive;
-    
+
     // تأمين تحويل التواريخ لكائن Date حقيقي عشان الـ Validators ميزعلوش
     if (startDate) updateData.startDate = new Date(startDate);
     if (endDate) updateData.endDate = new Date(endDate);
@@ -532,7 +560,7 @@ app.put("/offers/:id", async (req, res) => {
       {
         new: true, // يرجعلك الأوبجكت بعد التعديل مش قبله
         runValidators: true,
-      }
+      },
     ).populate("products", "title image price"); // بالمرة عشان يرجعلك البيانات متفصصة للفرونت إند
 
     if (!updatedOffer) {
@@ -575,14 +603,17 @@ app.delete("/offers/:id", async (req, res) => {
   }
 });
 
-
-
 const PORT = process.env.PORT || 8080;
 
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`🚀 Server listening locally on port: ${PORT}`);
-    });
+  });
 }
+
+const { getMegaDashboardStats } = require("../controllers/dashboardController");
+
+app.get("/all-stats", getMegaDashboardStats);
+
 
 module.exports = app;
