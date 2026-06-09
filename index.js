@@ -613,7 +613,6 @@ if (process.env.NODE_ENV !== "production") {
 
 const { getMegaDashboardStats } = require("../controllers/dashboardController");
 
-app.get("/all-stats", getMegaDashboardStats);
-
+app.get("/api/dashboard/all-stats", getMegaDashboardStats);
 
 module.exports = app;
