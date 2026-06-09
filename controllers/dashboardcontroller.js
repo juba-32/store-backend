@@ -1,6 +1,6 @@
 const Order = require("../models/order");
 const User = require("../models/user");
-const Product = require("../models/product")
+const Product = require("../models/product");
 
 exports.getMegaDashboardStats = async (req, res) => {
   try {
@@ -16,20 +16,20 @@ exports.getMegaDashboardStats = async (req, res) => {
     // ==========================================
     
     // أ- إجمالي العملاء والـ Trend
-    const totalCustomers = await User.countDocuments({ role: "user" }); // تأكد إن حقل الأدمن اسمه role
+    const totalCustomers = await User.countDocuments({ role: "user" }); 
     const lastMonthCustomers = await User.countDocuments({
       role: "user",
       createdAt: { $gte: startOfLastMonth, $lt: startOfCurrentMonth }
     });
     const customerTrend = totalCustomers >= lastMonthCustomers ? "up" : "down";
 
-    // ب- إجمالي الإيرادات والطلبات الناجحة (delivered) بناءً على حقل total عندك
+    // ب- إجمالي الإيرادات والطلبات الناجحة (delivered)
     const cardStats = await Order.aggregate([
-      { $match: { status: "delivered" } }, // حروف صغيرة مطابقة للـ enum عندك
+      { $match: { status: "delivered" } }, 
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: "$total" }, // استخدام حقل total من الـ Schema بتاعتك
+          totalRevenue: { $sum: "$total" }, 
           totalOrders: { $sum: 1 }
         }
       }
@@ -73,62 +73,94 @@ exports.getMegaDashboardStats = async (req, res) => {
     // ==========================================
     // 3️⃣ حساب مبيعات التصنيفات (CategorySalesPie)
     // ==========================================
-    const categoryStats = await Order.aggregate([
-      { $match: { status: "delivered" } },
-      { $unwind: "$items" }, // تفكيك مصفوفة الـ items بتاعتك
-      {
-        $lookup: {
-          from: Product.collection.name, // تأكد إن اسم الـ Collection في قاعدة البيانات هو products (جمع بحروف صغيرة)
-          localField: "items.product",
-          foreignField: "_id",
-          as: "productDetails"
+    let categorySales = [];
+    try {
+      const categoryStats = await Order.aggregate([
+        { $match: { status: "delivered" } },
+        { $unwind: "$items" },
+        {
+          $addFields: {
+            "items.productObjId": { $toObjectId: "$items.product" }
+          }
+        },
+        {
+          $lookup: {
+            from: Product.collection.name,
+            localField: "items.productObjId",
+            foreignField: "_id",
+            as: "productDetails"
+          }
+        },
+        { $unwind: { path: "$productDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: { $ifNull: ["$productDetails.category.en", "Uncategorized"] }, 
+            value: { 
+              $sum: { 
+                $multiply: [
+                  { $toDouble: { $ifNull: ["$items.qty", 0] } },   
+                  { $toDouble: { $ifNull: ["$items.price", 0] } }  
+                ] 
+              } 
+            }
+          }
         }
-      },
-      { $unwind: "$productDetails" },
-      {
-        $group: {
-          _id: "$productDetails.category",
-          // بنضرب الكمية (qty) في السعر (price) من جوه مصفوفة الـ items عندك مباشرة
-          value: { $sum: { $multiply: ["$items.qty", "$items.price"] } }
-        }
-      }
-    ]);
+      ]);
 
-    const categorySales = categoryStats.map(item => ({
-      name: item._id || "Uncategorized",
-      value: item.value
-    }));
+      if (categoryStats && categoryStats.length > 0) {
+        categorySales = categoryStats.map(item => ({
+          name: item._id,
+          value: item.value || 0
+        }));
+      }
+    } catch (err) {
+      console.error("Error in category aggregation:", err);
+      categorySales = [];
+    }
 
     // ==========================================
     // 4️⃣ حساب المنتجات الأكثر مبيعاً (BestSellers)
     // ==========================================
-    const bestSellersStats = await Order.aggregate([
-      { $match: { status: "delivered" } },
-      { $unwind: "$items" },
-      {
-        $lookup: {
-          from: Product.collection.name,
-          localField: "items.product",
-          foreignField: "_id",
-          as: "productDetails"
-        }
-      },
-      { $unwind: "$productDetails" },
-      {
-        $group: {
-          _id: "$items.product",
-          name: { $first: "$productDetails.name" }, // سحب اسم المنتج من الـ Details
-          sales: { $sum: "$items.qty" } // جمع حقل الـ qty لعدد المبيعات
-        }
-      },
-      { $sort: { sales: -1 } },
-      { $limit: 5 }
-    ]);
+    let bestSellers = [];
+    try {
+      const bestSellersStats = await Order.aggregate([
+        { $match: { status: "delivered" } },
+        { $unwind: "$items" },
+        {
+          $addFields: {
+            "items.productObjId": { $toObjectId: "$items.product" }
+          }
+        },
+        {
+          $lookup: {
+            from: Product.collection.name,
+            localField: "items.productObjId",
+            foreignField: "_id",
+            as: "productDetails"
+          }
+        },
+        { $unwind: { path: "$productDetails", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: "$items.product",
+            name: { $first: { $ifNull: ["$productDetails.title.en", "Unknown Product"] } },
+            sales: { $sum: { $toDouble: { $ifNull: ["$items.qty", 0] } } } 
+          }
+        },
+        { $sort: { sales: -1 } },
+        { $limit: 5 }
+      ]);
 
-    const bestSellers = bestSellersStats.map(item => ({
-      name: item.name || "Unknown Product",
-      sales: item.sales
-    }));
+      if (bestSellersStats && bestSellersStats.length > 0) {
+        bestSellers = bestSellersStats.map(item => ({
+          name: item.name || "Unknown Product",
+          sales: item.sales || 0
+        }));
+      }
+    } catch (err) {
+      console.error("Error in bestSellers aggregation:", err);
+      bestSellers = [];
+    }
 
     // ==========================================
     // 🚀 تجميع وإرسال الـ Response النهائي للفرونت إند
