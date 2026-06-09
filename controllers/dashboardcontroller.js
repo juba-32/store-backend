@@ -1,5 +1,6 @@
 const Order = require("../models/order");
 const User = require("../models/user");
+const Product = require("../models/product")
 
 exports.getMegaDashboardStats = async (req, res) => {
   try {
@@ -35,8 +36,6 @@ exports.getMegaDashboardStats = async (req, res) => {
     ]);
     const totalRevenue = cardStats[0]?.totalRevenue || 0;
     const totalOrders = cardStats[0]?.totalOrders || 0;
-
-    // جـ- المرتجعات (returned)
     const totalReturns = await Order.countDocuments({ status: "returned" });
 
     // ==========================================
@@ -79,7 +78,7 @@ exports.getMegaDashboardStats = async (req, res) => {
       { $unwind: "$items" }, // تفكيك مصفوفة الـ items بتاعتك
       {
         $lookup: {
-          from: "products", // تأكد إن اسم الـ Collection في قاعدة البيانات هو products (جمع بحروف صغيرة)
+          from: Product.collection.name, // تأكد إن اسم الـ Collection في قاعدة البيانات هو products (جمع بحروف صغيرة)
           localField: "items.product",
           foreignField: "_id",
           as: "productDetails"
@@ -108,7 +107,7 @@ exports.getMegaDashboardStats = async (req, res) => {
       { $unwind: "$items" },
       {
         $lookup: {
-          from: "products",
+          from: Product.collection.name,
           localField: "items.product",
           foreignField: "_id",
           as: "productDetails"
