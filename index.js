@@ -611,7 +611,7 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-const { getMegaDashboardStats } = require("../controllers/dashboardController");
+const { getMegaDashboardStats } = require("./controllers/dashboardcontroller");
 
 app.get("/api/dashboard/all-stats", getMegaDashboardStats);
 
