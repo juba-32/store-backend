@@ -1,5 +1,5 @@
-const order = require("../models/order");
-const user = require("../models/user");
+const Order = require("../models/order");
+const User = require("../models/user");
 
 exports.getMegaDashboardStats = async (req, res) => {
   try {
